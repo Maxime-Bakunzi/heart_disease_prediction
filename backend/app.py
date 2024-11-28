@@ -1,4 +1,5 @@
 from fastapi import FastAPI, HTTPException, UploadFile, File, BackgroundTasks
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from typing import List, Optional
 import pandas as pd
@@ -9,6 +10,15 @@ from sklearn.preprocessing import StandardScaler
 from pathlib import Path
 
 app = FastAPI(title="Heart Disease Prediction API")
+
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Allows all origins
+    allow_credentials=False,  # Must be False for wildcard origin
+    allow_methods=["*"],  # Allows all methods
+    allow_headers=["*"],  # Allows all headers
+)
 
 # Constants for file paths
 MODEL_PATH = Path("../models/best_model.pkl")
