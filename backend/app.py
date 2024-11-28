@@ -35,10 +35,10 @@ SCALER_PATH = Path("../models/scaler.pkl")
 
 
 class PredictionInput(BaseModel):
-    age: float = Field(..., ge=0, le=120, description="Age in years")
+    age: float = Field(..., ge=0, le=150, description="Age in years")
     sex: int = Field(..., ge=0, le=1, description="Sex (0: Female, 1: Male)")
-    chest_pain_type: int = Field(..., ge=0, le=3, alias="chest pain type",
-                                 description="Chest pain type (0-3)")
+    chest_pain_type: int = Field(..., ge=1, le=4, alias="chest pain type",
+                                 description="Chest pain type (1-4)")
     resting_bp_s: float = Field(..., ge=80, le=200, alias="resting bp s",
                                 description="Resting blood pressure (mm Hg)")
     cholesterol: float = Field(..., ge=100, le=600,
@@ -53,8 +53,8 @@ class PredictionInput(BaseModel):
                                  description="Exercise induced angina (0: No, 1: Yes)")
     oldpeak: float = Field(..., ge=0, le=10,
                            description="ST depression induced by exercise")
-    st_slope: int = Field(..., ge=0, le=2, alias="ST slope",
-                          description="Slope of the peak exercise ST segment (0-2)")
+    st_slope: int = Field(..., ge=1, le=3, alias="ST slope",
+                          description="Slope of the peak exercise ST segment (1-3)")
 
 
 class PredictionResponse(BaseModel):

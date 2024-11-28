@@ -4,6 +4,11 @@ import { useState } from 'react';
 import Footer from '@/components/Footer';
 import { API_URL } from '@/config/api';
 
+interface PredictionResult {
+  prediction: number;
+  probability: number;
+}
+
 export default function PredictionPage() {
   const [formData, setFormData] = useState({
     age: '',
@@ -19,7 +24,7 @@ export default function PredictionPage() {
     'ST slope': ''
   });
 
-  const [prediction, setPrediction] = useState<null | boolean>(null);
+  const [prediction, setPrediction] = useState<PredictionResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -30,27 +35,36 @@ export default function PredictionPage() {
     setPrediction(null);
 
     try {
+      // First, check if the API is accessible
+      const healthCheck = await fetch(`${API_URL}/docs`).catch(() => null);
+      if (!healthCheck) {
+        throw new Error('Cannot connect to the prediction service. Please try again later.');
+      }
+
       const response = await fetch(`${API_URL}/predict`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
         },
-        mode: 'cors',
         body: JSON.stringify(formData),
       });
 
       if (!response.ok) {
         const errorData = await response.text();
         console.error('Server response:', errorData);
-        throw new Error(`HTTP error! status: ${response.status}`);
+        throw new Error(
+          `Server error (${response.status}): ${
+            errorData || 'Unknown error occurred'
+          }`
+        );
       }
       
       const data = await response.json();
-      setPrediction(data.prediction === 1);
+      setPrediction(data);
     } catch (error) {
       console.error('Error:', error);
-      setError('Error making prediction. Please try again. Check the console for details.');
+      setError(error instanceof Error ? error.message : 'An unexpected error occurred');
     } finally {
       setLoading(false);
     }
@@ -241,13 +255,27 @@ export default function PredictionPage() {
               </div>
             )}
 
-            {prediction !== null && (
-              <div className={`p-4 rounded-md ${prediction ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
-                {prediction ? (
-                  <p className="font-medium">Based on the provided information, there is a high likelihood of heart disease. Please consult with a healthcare professional for a thorough evaluation.</p>
-                ) : (
-                  <p className="font-medium">Based on the provided information, there is a low likelihood of heart disease. However, maintain a healthy lifestyle and regular check-ups.</p>
-                )}
+            {prediction && !error && (
+              <div className="mt-8 p-6 bg-white rounded-lg shadow-lg">
+                <h2 className="text-2xl font-bold mb-4 text-gray-800">Prediction Result</h2>
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                    <span className="font-semibold text-gray-700">Diagnosis:</span>
+                    <span className={`text-lg font-bold ${prediction.prediction === 1 ? 'text-red-600' : 'text-green-600'}`}>
+                      {prediction.prediction === 1 ? 'Heart Disease Detected' : 'No Heart Disease Detected'}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                    <span className="font-semibold text-gray-700">Confidence:</span>
+                    <span className="text-lg font-bold text-blue-600">
+                      {(prediction.probability * 100).toFixed(2)}%
+                    </span>
+                  </div>
+                  <p className="mt-4 text-sm text-gray-600 italic">
+                    Note: This prediction is based on the provided data and should be used for informational purposes only. 
+                    Please consult with a healthcare professional for proper medical diagnosis.
+                  </p>
+                </div>
               </div>
             )}
 
