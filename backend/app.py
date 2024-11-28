@@ -1,5 +1,6 @@
 from fastapi import FastAPI, HTTPException, UploadFile, File, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from typing import List, Optional
 import pandas as pd
@@ -11,13 +12,21 @@ from pathlib import Path
 
 app = FastAPI(title="Heart Disease Prediction API")
 
+origins = [
+    "http://localhost:3000",
+    "http://localhost:8000",
+    "https://heart-disease-prediction-web.vercel.app",
+    # Add any other origins you need
+]
+
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allows all origins
-    allow_credentials=False,  # Must be False for wildcard origin
-    allow_methods=["*"],  # Allows all methods
-    allow_headers=["*"],  # Allows all headers
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+    expose_headers=["*"],
 )
 
 # Constants for file paths
@@ -110,6 +119,19 @@ async def predict(input_data: PredictionInput):
         )
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.options("/predict")
+async def options_predict():
+    return JSONResponse(
+        status_code=200,
+        content={"message": "OK"},
+        headers={
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "POST, OPTIONS",
+            "Access-Control-Allow-Headers": "Content-Type",
+        },
+    )
 
 
 @app.post("/predict/batch", response_model=BatchPredictionResponse)

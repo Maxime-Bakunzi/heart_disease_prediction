@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Footer from '@/components/Footer';
+import { API_URL } from '@/config/api';
 
 export default function PredictionPage() {
   const [formData, setFormData] = useState({
@@ -29,17 +30,27 @@ export default function PredictionPage() {
     setPrediction(null);
 
     try {
-      const response = await fetch('https://heart-disease-prediction-apis.onrender.com/predict', {
+      const response = await fetch(`${API_URL}/predict`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Accept': 'application/json',
         },
+        mode: 'cors',
         body: JSON.stringify(formData),
       });
+
+      if (!response.ok) {
+        const errorData = await response.text();
+        console.error('Server response:', errorData);
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
       const data = await response.json();
       setPrediction(data.prediction === 1);
     } catch (error) {
-      setError('Error making prediction. Please try again.');
+      console.error('Error:', error);
+      setError('Error making prediction. Please try again. Check the console for details.');
     } finally {
       setLoading(false);
     }
