@@ -3,17 +3,32 @@
 import { useState } from 'react';
 import Footer from '@/components/Footer';
 
+interface ModelMetrics {
+  accuracy: number;
+  precision: number;
+  recall: number;
+  f1_score: number;
+  roc_auc: number;
+  training_samples: number;
+  test_samples: number;
+}
+
+interface RetrainingResponse {
+  message: string;
+  metrics: ModelMetrics;
+}
+
 export default function RetrainingPage() {
   const [file, setFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
+  const [metrics, setMetrics] = useState<ModelMetrics | null>(null);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       setFile(e.target.files[0]);
       setError('');
-      setSuccess('');
+      setMetrics(null);
     }
   };
 
@@ -26,7 +41,7 @@ export default function RetrainingPage() {
 
     setLoading(true);
     setError('');
-    setSuccess('');
+    setMetrics(null);
 
     const formData = new FormData();
     formData.append('file', file);
@@ -38,17 +53,28 @@ export default function RetrainingPage() {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to retrain model');
+        const errorData = await response.json();
+        throw new Error(errorData.detail || 'Failed to retrain model');
       }
 
-      const data = await response.json();
-      setSuccess('Model retrained successfully! New model metrics: ' + JSON.stringify(data.metrics));
+      const data: RetrainingResponse = await response.json();
+      setMetrics(data.metrics);
     } catch (err) {
-      setError('Error retraining model. Please try again.');
+      setError(err instanceof Error ? err.message : 'Error retraining model. Please try again.');
     } finally {
       setLoading(false);
     }
   };
+
+  const MetricCard = ({ title, value, description }: { title: string; value: number; description: string }) => (
+    <div className="bg-white p-6 rounded-lg shadow">
+      <dt className="text-sm font-medium text-gray-500">{title}</dt>
+      <dd className="mt-1 text-3xl font-semibold text-indigo-600">
+        {typeof value === 'number' ? (value * 100).toFixed(2) + '%' : value}
+      </dd>
+      <dd className="mt-2 text-sm text-gray-500">{description}</dd>
+    </div>
+  );
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
@@ -56,7 +82,7 @@ export default function RetrainingPage() {
         <div className="max-w-3xl mx-auto">
           <h1 className="text-3xl font-bold text-gray-900 mb-8">Model Retraining</h1>
           
-          <div className="bg-white p-6 rounded-lg shadow">
+          <div className="bg-white p-6 rounded-lg shadow mb-8">
             <div className="mb-6">
               <p className="text-gray-600">
                 Upload a new dataset to retrain the heart disease prediction model. The file should be in CSV format and include both features and target labels.
@@ -92,12 +118,6 @@ export default function RetrainingPage() {
                 </div>
               )}
 
-              {success && (
-                <div className="text-green-600 text-sm">
-                  {success}
-                </div>
-              )}
-
               <div className="flex justify-end">
                 <button
                   type="submit"
@@ -106,11 +126,56 @@ export default function RetrainingPage() {
                     (loading || !file) && 'opacity-50 cursor-not-allowed'
                   }`}
                 >
-                  {loading ? 'Retraining Model...' : 'Start Retraining'}
+                  {loading ? 'Retraining...' : 'Retrain Model'}
                 </button>
               </div>
             </form>
           </div>
+
+          {metrics && (
+            <div className="bg-white p-6 rounded-lg shadow">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">New Model Performance Metrics</h2>
+              
+              <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                <MetricCard
+                  title="Accuracy"
+                  value={metrics.accuracy}
+                  description="Overall prediction accuracy"
+                />
+                <MetricCard
+                  title="Precision"
+                  value={metrics.precision}
+                  description="Ratio of correct positive predictions"
+                />
+                <MetricCard
+                  title="Recall"
+                  value={metrics.recall}
+                  description="Ratio of actual positives correctly identified"
+                />
+                <MetricCard
+                  title="F1 Score"
+                  value={metrics.f1_score}
+                  description="Harmonic mean of precision and recall"
+                />
+                <MetricCard
+                  title="ROC AUC"
+                  value={metrics.roc_auc}
+                  description="Area under the ROC curve"
+                />
+              </div>
+
+              <div className="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-2">
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <dt className="text-sm font-medium text-gray-500">Training Samples</dt>
+                  <dd className="mt-1 text-2xl font-semibold text-gray-900">{metrics.training_samples}</dd>
+                </div>
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <dt className="text-sm font-medium text-gray-500">Test Samples</dt>
+                  <dd className="mt-1 text-2xl font-semibold text-gray-900">{metrics.test_samples}</dd>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
       <Footer />

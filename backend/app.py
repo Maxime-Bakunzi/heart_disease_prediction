@@ -8,6 +8,8 @@ import io
 import joblib
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.preprocessing import StandardScaler
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_auc_score
 from pathlib import Path
 
 app = FastAPI(title="Heart Disease Prediction API")
@@ -66,6 +68,21 @@ class BatchPredictionResponse(BaseModel):
     names: List[str]
     predictions: List[int]
     probabilities: List[float]
+
+
+class ModelMetrics(BaseModel):
+    accuracy: float
+    precision: float
+    recall: float
+    f1_score: float
+    roc_auc: float
+    training_samples: int
+    test_samples: int
+
+
+class RetrainingResponse(BaseModel):
+    message: str
+    metrics: ModelMetrics
 
 
 def load_model_and_scaler():
@@ -224,52 +241,89 @@ async def predict_batch(file: UploadFile = File(...)):
         raise HTTPException(status_code=500, detail=f"An error occurred while processing the file: {str(e)}")
 
 
-def retrain_model_task(training_data: pd.DataFrame):
+def calculate_metrics(model, X_test, y_test, X_train) -> ModelMetrics:
+    """Calculate model performance metrics."""
+    y_pred = model.predict(X_test)
+    y_pred_proba = model.predict_proba(X_test)[:, 1]
+    
+    return ModelMetrics(
+        accuracy=float(accuracy_score(y_test, y_pred)),
+        precision=float(precision_score(y_test, y_pred)),
+        recall=float(recall_score(y_test, y_pred)),
+        f1_score=float(f1_score(y_test, y_pred)),
+        roc_auc=float(roc_auc_score(y_test, y_pred_proba)),
+        training_samples=len(X_train),
+        test_samples=len(X_test)
+    )
+
+
+async def retrain_model_task(training_data: pd.DataFrame):
     """Background task for model retraining."""
     try:
-        # Validate and prepare data
-        if 'target' not in training_data.columns:
-            raise ValueError("Training data must include 'target' column")
-
+        # Separate features and target
         X = training_data.drop('target', axis=1)
         y = training_data['target']
 
-        # Fit scaler and transform data
-        X_scaled = preprocess_data(X, scaler, fit=True)
+        # Split the data
+        X_train, X_test, y_train, y_test = train_test_split(
+            X, y, test_size=0.2, random_state=42
+        )
+
+        # Fit the scaler on training data
+        scaler.fit(X_train)
+        X_train_scaled = scaler.transform(X_train)
+        X_test_scaled = scaler.transform(X_test)
 
         # Train new model
-        global model
-        model = train_random_forest(X_scaled, y)
+        new_model = train_random_forest(X_train_scaled, y_train)
 
-        # Save model and scaler
-        joblib.dump(model, MODEL_PATH)
+        # Calculate metrics
+        metrics = calculate_metrics(new_model, X_test_scaled, y_test, X_train)
+
+        # Save the new model and scaler
+        joblib.dump(new_model, MODEL_PATH)
         joblib.dump(scaler, SCALER_PATH)
 
-        print("Model retraining completed successfully")
+        # Update the global model reference
+        global model
+        model = new_model
+
+        return metrics
+
     except Exception as e:
         print(f"Error in model retraining: {str(e)}")
+        raise
 
 
-@app.post("/retrain")
+@app.post("/retrain", response_model=RetrainingResponse)
 async def retrain_model(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...)
 ):
     """Trigger model retraining with new data."""
     try:
-        # Read CSV file
+        # Read and validate the training data
         contents = await file.read()
         training_data = pd.read_csv(io.StringIO(contents.decode('utf-8')))
 
-        # Add retraining task to background tasks
-        background_tasks.add_task(retrain_model_task, training_data)
+        # Validate the required columns
+        required_columns = list(get_column_mapping().keys()) + ['target']
+        missing_columns = [col for col in required_columns if col not in training_data.columns]
+        
+        if missing_columns:
+            raise ValueError(f"Missing required columns: {missing_columns}")
 
-        return {
-            "message": "Model retraining started in background",
-            "status": "success"
-        }
+        # Start the retraining task
+        metrics = await retrain_model_task(training_data)
+
+        return RetrainingResponse(
+            message="Model retrained successfully",
+            metrics=metrics
+        )
+
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+
 
 # if __name__ == "__main__":
 #     import uvicorn
