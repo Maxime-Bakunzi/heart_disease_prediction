@@ -63,6 +63,7 @@ class PredictionResponse(BaseModel):
 
 
 class BatchPredictionResponse(BaseModel):
+    names: List[str]
     predictions: List[int]
     probabilities: List[float]
 
@@ -142,21 +143,26 @@ async def predict_batch(file: UploadFile = File(...)):
         contents = await file.read()
         data = pd.read_csv(io.StringIO(contents.decode('utf-8')))
 
-        # Validate columns
-        required_columns = set(
-            [field.alias or field.name for field in PredictionInput.__fields__.values()])
-        if not required_columns.issubset(data.columns):
-            missing_cols = required_columns - set(data.columns)
+        # Store names if available, otherwise use index
+        names = data.get('name', [f"Patient_{i}" for i in range(len(data))]).tolist()
+
+        # Get required columns for prediction
+        required_columns = [field.alias or field for field in PredictionInput.__fields__.values()]
+        prediction_columns = [col for col in required_columns if col in data.columns]
+
+        if len(prediction_columns) != len(required_columns):
+            missing_cols = set(required_columns) - set(prediction_columns)
             raise ValueError(f"Missing required columns: {missing_cols}")
 
         # Preprocess data
-        X_scaled = preprocess_data(data, scaler)
+        X_scaled = preprocess_data(data[prediction_columns], scaler)
 
         # Make predictions
         predictions = model.predict(X_scaled)
         probabilities = model.predict_proba(X_scaled)[:, 1]
 
         return BatchPredictionResponse(
+            names=names,
             predictions=predictions.tolist(),
             probabilities=probabilities.tolist()
         )
