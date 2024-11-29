@@ -3,17 +3,25 @@
 import { useState } from 'react';
 import Footer from '@/components/Footer';
 
+interface PredictionResult {
+  names: string[];
+  predictions: number[];
+  probabilities: number[];
+}
+
 export default function DataUploadPage() {
   const [file, setFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [results, setResults] = useState<PredictionResult | null>(null);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       setFile(e.target.files[0]);
       setError('');
       setSuccess('');
+      setResults(null);
     }
   };
 
@@ -27,6 +35,7 @@ export default function DataUploadPage() {
     setLoading(true);
     setError('');
     setSuccess('');
+    setResults(null);
 
     const formData = new FormData();
     formData.append('file', file);
@@ -38,14 +47,15 @@ export default function DataUploadPage() {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to process file');
+        const errorData = await response.json();
+        throw new Error(errorData.detail || 'Failed to process file');
       }
 
       const data = await response.json();
+      setResults(data);
       setSuccess('File processed successfully!');
-      // Handle the prediction results as needed
     } catch (err) {
-      setError('Error processing file. Please try again.');
+      setError(err instanceof Error ? err.message : 'Error processing file. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -54,10 +64,10 @@ export default function DataUploadPage() {
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 flex-grow">
-        <div className="max-w-3xl mx-auto">
+        <div className="max-w-5xl mx-auto">
           <h1 className="text-3xl font-bold text-gray-900 mb-8">Batch Data Upload</h1>
           
-          <div className="bg-white p-6 rounded-lg shadow">
+          <div className="bg-white p-6 rounded-lg shadow mb-8">
             <form onSubmit={handleSubmit} className="space-y-6">
               <div>
                 <label className="block text-sm font-medium text-gray-700">
@@ -101,11 +111,55 @@ export default function DataUploadPage() {
                     (loading || !file) && 'opacity-50 cursor-not-allowed'
                   }`}
                 >
-                  {loading ? 'Processing...' : 'Upload and Process'}
+                  {loading ? 'Processing...' : 'Upload and Predict'}
                 </button>
               </div>
             </form>
           </div>
+
+          {results && results.names && results.names.length > 0 && (
+            <div className="bg-white p-6 rounded-lg shadow">
+              <h2 className="text-xl font-semibold text-gray-900 mb-4">Prediction Results</h2>
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Name
+                      </th>
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Prediction
+                      </th>
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Probability
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {results.names.map((name, index) => (
+                      <tr key={index} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                          {name}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                            results.predictions[index] === 1 
+                              ? 'bg-red-100 text-red-800' 
+                              : 'bg-green-100 text-green-800'
+                          }`}>
+                            {results.predictions[index] === 1 ? 'High Risk' : 'Low Risk'}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {(results.probabilities[index] * 100).toFixed(2)}%
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
         </div>
       </div>
       <Footer />
