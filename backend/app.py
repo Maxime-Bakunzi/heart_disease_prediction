@@ -135,6 +135,23 @@ async def options_predict():
     )
 
 
+def get_column_mapping():
+    """Get mapping of possible column names to standardized names."""
+    return {
+        'age': ['age', 'Age', 'AGE'],
+        'sex': ['sex', 'Sex', 'SEX', 'gender', 'Gender'],
+        'chest pain type': ['chest_pain_type', 'chest pain type', 'ChestPainType', 'chest_pain'],
+        'resting bp s': ['resting_bp_s', 'resting bp s', 'RestingBP', 'resting_bp', 'bp'],
+        'cholesterol': ['cholesterol', 'Cholesterol', 'CHOL'],
+        'fasting blood sugar': ['fasting_blood_sugar', 'fasting blood sugar', 'FastingBS'],
+        'resting ecg': ['resting_ecg', 'resting ecg', 'RestingECG'],
+        'max heart rate': ['max_heart_rate', 'max heart rate', 'MaxHR'],
+        'exercise angina': ['exercise_angina', 'exercise angina', 'ExerciseAngina'],
+        'oldpeak': ['oldpeak', 'Oldpeak', 'ST_Depression'],
+        'ST slope': ['st_slope', 'ST slope', 'ST_Slope']
+    }
+
+
 @app.post("/predict/batch", response_model=BatchPredictionResponse)
 async def predict_batch(file: UploadFile = File(...)):
     """Make predictions for multiple instances from CSV file."""
@@ -146,16 +163,47 @@ async def predict_batch(file: UploadFile = File(...)):
         # Store names if available, otherwise use index
         names = data.get('name', [f"Patient_{i}" for i in range(len(data))]).tolist()
 
-        # Get required columns for prediction
-        required_columns = [field.alias or field for field in PredictionInput.__fields__.values()]
-        prediction_columns = [col for col in required_columns if col in data.columns]
+        # Get column mapping
+        column_mapping = get_column_mapping()
+        
+        # Create standardized DataFrame with exact column names used during training
+        standardized_data = pd.DataFrame()
+        missing_columns = []
 
-        if len(prediction_columns) != len(required_columns):
-            missing_cols = set(required_columns) - set(prediction_columns)
-            raise ValueError(f"Missing required columns: {missing_cols}")
+        for standard_name, possible_names in column_mapping.items():
+            # Find matching column in data
+            matching_col = None
+            for possible_name in possible_names:
+                if possible_name in data.columns:
+                    matching_col = possible_name
+                    break
+            
+            if matching_col is not None:
+                standardized_data[standard_name] = data[matching_col]
+            else:
+                missing_columns.append(standard_name)
+
+        if missing_columns:
+            raise ValueError(f"Missing required columns. Please ensure your CSV contains columns for: {', '.join(missing_columns)}")
+
+        # Ensure numeric data types
+        for col in standardized_data.columns:
+            standardized_data[col] = pd.to_numeric(standardized_data[col], errors='coerce')
+
+        # Check for any NaN values
+        if standardized_data.isna().any().any():
+            raise ValueError("Some required values are missing or invalid in your CSV file")
+
+        # Ensure columns are in the correct order
+        expected_columns = [
+            'age', 'sex', 'chest pain type', 'resting bp s', 'cholesterol',
+            'fasting blood sugar', 'resting ecg', 'max heart rate',
+            'exercise angina', 'oldpeak', 'ST slope'
+        ]
+        standardized_data = standardized_data[expected_columns]
 
         # Preprocess data
-        X_scaled = preprocess_data(data[prediction_columns], scaler)
+        X_scaled = preprocess_data(standardized_data, scaler)
 
         # Make predictions
         predictions = model.predict(X_scaled)
@@ -166,8 +214,14 @@ async def predict_batch(file: UploadFile = File(...)):
             predictions=predictions.tolist(),
             probabilities=probabilities.tolist()
         )
-    except Exception as e:
+    except pd.errors.EmptyDataError:
+        raise HTTPException(status_code=400, detail="The uploaded CSV file is empty")
+    except pd.errors.ParserError:
+        raise HTTPException(status_code=400, detail="Invalid CSV file format")
+    except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"An error occurred while processing the file: {str(e)}")
 
 
 def retrain_model_task(training_data: pd.DataFrame):
