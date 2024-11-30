@@ -50,6 +50,7 @@ export default function PredictionPage() {
     const numValue = Number(value);
 
     if ('options' in rule) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       if (!rule.options.includes(numValue as any)) return rule.message;
     } else {
       if (numValue < rule.min || numValue > rule.max) return rule.message;
