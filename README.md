@@ -4,7 +4,7 @@ A modern, user-friendly web application that leverages machine learning to predi
 
 ## 🎥 Demo
 
-[Watch the Demo on YouTube](youtube-link-here)
+[Watch the Demo on YouTube](https://youtu.be/Q81jDOCfZBA)
 
 ## 🌐 Live Application
 
