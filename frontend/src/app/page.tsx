@@ -99,7 +99,7 @@ export default function Home() {
                     
                     <div>
                       <p className="font-medium">Serum Cholesterol:</p>
-                      <p>This numeric value represents the individual's cholesterol level in mg/dl.</p>
+                      <p>This numeric value represents the individual&apos;s cholesterol level in mg/dl.</p>
                     </div>
                     
                     <div>
@@ -109,7 +109,7 @@ export default function Home() {
                     
                     <div>
                       <p className="font-medium">Resting Electrocardiogram Results:</p>
-                      <p>This nominal attribute records the results of an individual's electrocardiogram, categorized as follows:</p>
+                      <p>This nominal attribute records the results of an individual&apos;s electrocardiogram, categorized as follows:</p>
                       <ul className="list-disc pl-5 mt-1">
                         <li>Value 0: Normal</li>
                         <li>Value 1: Showing ST-T wave abnormality (T wave inversions and/or ST elevation or depression of &gt; 0.05 mV)</li>
