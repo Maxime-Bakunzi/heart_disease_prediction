@@ -84,8 +84,8 @@ The frontend will be available at `http://localhost:3000`
 You can also run the frontend directly using our pre-built Docker image from Docker Hub:
 
 ```bash
-docker pull maximebakunzi/heart-disease-prediction-frontend:latest
-docker run -p 3000:3000 maximebakunzi/heart-disease-prediction-frontend:latest
+docker pull maximebakunzi/pulsepoint-frontend:latest
+docker run -p 3000:3000 maximebakunzi/pulsepoint-frontend:latest
 ```
 
 The application will be available at `http://localhost:3000`
