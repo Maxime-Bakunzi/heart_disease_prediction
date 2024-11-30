@@ -112,8 +112,8 @@ export default function Home() {
                       <p>This nominal attribute records the results of an individual's electrocardiogram, categorized as follows:</p>
                       <ul className="list-disc pl-5 mt-1">
                         <li>Value 0: Normal</li>
-                        <li>Value 1: Showing ST-T wave abnormality (T wave inversions and/or ST elevation or depression {'>'} 0.05 mV)</li>
-                        <li>Value 2: Indicating probable or definite left ventricular hypertrophy based on Estes' criteria</li>
+                        <li>Value 1: Showing ST-T wave abnormality (T wave inversions and/or ST elevation or depression of &gt; 0.05 mV)</li>
+                        <li>Value 2: Indicating probable or definite left ventricular hypertrophy based on Estes&apos; criteria</li>
                       </ul>
                     </div>
                     
@@ -124,7 +124,7 @@ export default function Home() {
                     
                     <div>
                       <p className="font-medium">Exercise Induced Angina:</p>
-                      <p>This binary attribute indicates whether the individual experienced exercise-induced angina, with 1 for "yes" and 0 for "no."</p>
+                      <p>This binary attribute indicates whether the individual experienced exercise-induced angina, with 1 for &quot;yes&quot; and 0 for &quot;no.&quot;</p>
                     </div>
                     
                     <div>

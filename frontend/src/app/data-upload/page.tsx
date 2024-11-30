@@ -126,7 +126,7 @@ export default function DataUploadPage() {
                 </p>
                 <ul className="list-disc list-inside text-sm text-blue-600 space-y-1">
                   <li>Each row shows predictions for one patient from your uploaded data</li>
-                  <li><span className="font-medium">Risk Level:</span> "High Risk" indicates potential heart disease, while "Low Risk" suggests lower probability</li>
+                  <li><span className="font-medium">Risk Level:</span> &quot;High Risk&quot; indicates potential heart disease, while &quot;Low Risk&quot; suggests lower probability</li>
                   <li><span className="font-medium">Probability:</span> Shows the confidence level of the prediction as a percentage</li>
                   <li>These results should be used as a screening tool and not as a final diagnosis</li>
                 </ul>
