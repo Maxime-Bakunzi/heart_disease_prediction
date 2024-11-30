@@ -27,20 +27,71 @@ export default function PredictionPage() {
   const [prediction, setPrediction] = useState<PredictionResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [fieldErrors, setFieldErrors] = useState<{ [key: string]: string }>({});
+
+  const validationRules = {
+    age: { min: 0, max: 120, message: 'Age must be between 0 and 120' },
+    sex: { options: [0, 1], message: 'Please select a valid sex' },
+    'chest pain type': { options: [1, 2, 3, 4], message: 'Please select a valid chest pain type' },
+    'resting bp s': { min: 0, max: 300, message: 'Resting blood pressure must be between 0 and 300' },
+    cholesterol: { min: 0, max: 600, message: 'Cholesterol must be between 0 and 600' },
+    'fasting blood sugar': { options: [0, 1], message: 'Please select a valid fasting blood sugar value' },
+    'resting ecg': { options: [0, 1, 2], message: 'Please select a valid resting ECG value' },
+    'max heart rate': { min: 0, max: 250, message: 'Max heart rate must be between 0 and 250' },
+    'exercise angina': { options: [0, 1], message: 'Please select a valid exercise induced angina value' },
+    oldpeak: { min: 0, max: 10, message: 'ST depression must be between 0 and 10' },
+    'ST slope': { options: [1, 2, 3], message: 'Please select a valid ST slope value' }
+  } as const;
+
+  const validateField = (name: string, value: string): string => {
+    if (!value) return 'This field is required';
+    
+    const rule = validationRules[name as keyof typeof validationRules];
+    const numValue = Number(value);
+
+    if ('options' in rule) {
+      if (!rule.options.includes(numValue as any)) return rule.message;
+    } else {
+      if (numValue < rule.min || numValue > rule.max) return rule.message;
+    }
+
+    return '';
+  };
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+    
+    // Clear error when user starts typing
+    setFieldErrors(prev => ({ ...prev, [name]: '' }));
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError('');
     setPrediction(null);
+    
+    // Validate all fields
+    const newFieldErrors: { [key: string]: string } = {};
+    let hasErrors = false;
+    
+    Object.entries(formData).forEach(([name, value]) => {
+      const error = validateField(name, value);
+      if (error) {
+        newFieldErrors[name] = error;
+        hasErrors = true;
+      }
+    });
+
+    if (hasErrors) {
+      setFieldErrors(newFieldErrors);
+      setLoading(false);
+      setError('Please correct the errors in the form');
+      return;
+    }
 
     try {
-      // First, check if the API is accessible
-      const healthCheck = await fetch(`${API_URL}/docs`).catch(() => null);
-      if (!healthCheck) {
-        throw new Error('Cannot connect to the prediction service. Please try again later.');
-      }
-
       const response = await fetch(`${API_URL}/predict`, {
         method: 'POST',
         headers: {
@@ -51,13 +102,15 @@ export default function PredictionPage() {
       });
 
       if (!response.ok) {
-        const errorData = await response.text();
-        console.error('Server response:', errorData);
-        throw new Error(
-          `Server error (${response.status}): ${
-            errorData || 'Unknown error occurred'
-          }`
-        );
+        const text = await response.text();
+        let errorMessage;
+        try {
+          const errorData = JSON.parse(text);
+          errorMessage = errorData.detail || 'An error occurred while making the prediction';
+        } catch {
+          errorMessage = `Server error (${response.status}): ${text.slice(0, 100)}`;
+        }
+        throw new Error(errorMessage);
       }
       
       const data = await response.json();
@@ -70,19 +123,18 @@ export default function PredictionPage() {
     }
   };
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value,
-    });
-  };
-
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 flex-grow">
         <div className="max-w-3xl mx-auto">
           <h1 className="text-3xl font-bold text-gray-900 mb-8">Heart Disease Prediction</h1>
           
+          {error && (
+            <div className="mb-4 p-4 bg-red-50 border border-red-400 rounded-md">
+              <p className="text-red-700">{error}</p>
+            </div>
+          )}
+
           <form onSubmit={handleSubmit} className="space-y-6 bg-white p-6 rounded-lg shadow">
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
               <div>
@@ -92,10 +144,14 @@ export default function PredictionPage() {
                   name="age"
                   value={formData.age}
                   onChange={handleChange}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-black"
+                  className={`mt-1 block w-full rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-black
+                    ${fieldErrors.age ? 'border-red-300' : 'border-gray-300'}`}
                   required
                 />
-                <p className="mt-1 text-sm text-gray-500">Age in years</p>
+                <p className="mt-1 text-sm text-gray-500">Age in years (0-120)</p>
+                {fieldErrors.age && (
+                  <p className="mt-1 text-sm text-red-600">{fieldErrors.age}</p>
+                )}
               </div>
               
               <div>
@@ -104,13 +160,17 @@ export default function PredictionPage() {
                   name="sex"
                   value={formData.sex}
                   onChange={handleChange}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-black"
+                  className={`mt-1 block w-full rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-black
+                    ${fieldErrors.sex ? 'border-red-300' : 'border-gray-300'}`}
                   required
                 >
                   <option value="">Select</option>
                   <option value="1">Male</option>
                   <option value="0">Female</option>
                 </select>
+                {fieldErrors.sex && (
+                  <p className="mt-1 text-sm text-red-600">{fieldErrors.sex}</p>
+                )}
               </div>
 
               <div>
@@ -119,7 +179,8 @@ export default function PredictionPage() {
                   name="chest pain type"
                   value={formData['chest pain type']}
                   onChange={handleChange}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-black"
+                  className={`mt-1 block w-full rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-black
+                    ${fieldErrors['chest pain type'] ? 'border-red-300' : 'border-gray-300'}`}
                   required
                 >
                   <option value="">Select</option>
@@ -129,6 +190,9 @@ export default function PredictionPage() {
                   <option value="4">Asymptomatic</option>
                 </select>
                 <p className="mt-1 text-sm text-gray-500">Type of chest pain experienced</p>
+                {fieldErrors['chest pain type'] && (
+                  <p className="mt-1 text-sm text-red-600">{fieldErrors['chest pain type']}</p>
+                )}
               </div>
 
               <div>
@@ -138,10 +202,14 @@ export default function PredictionPage() {
                   name="resting bp s"
                   value={formData['resting bp s']}
                   onChange={handleChange}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-black"
+                  className={`mt-1 block w-full rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-black
+                    ${fieldErrors['resting bp s'] ? 'border-red-300' : 'border-gray-300'}`}
                   required
                 />
-                <p className="mt-1 text-sm text-gray-500">In mm Hg</p>
+                <p className="mt-1 text-sm text-gray-500">In mm Hg (0-300)</p>
+                {fieldErrors['resting bp s'] && (
+                  <p className="mt-1 text-sm text-red-600">{fieldErrors['resting bp s']}</p>
+                )}
               </div>
 
               <div>
@@ -151,10 +219,14 @@ export default function PredictionPage() {
                   name="cholesterol"
                   value={formData.cholesterol}
                   onChange={handleChange}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-black"
+                  className={`mt-1 block w-full rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-black
+                    ${fieldErrors.cholesterol ? 'border-red-300' : 'border-gray-300'}`}
                   required
                 />
-                <p className="mt-1 text-sm text-gray-500">Serum cholesterol in mg/dl</p>
+                <p className="mt-1 text-sm text-gray-500">Serum cholesterol in mg/dl (0-600)</p>
+                {fieldErrors.cholesterol && (
+                  <p className="mt-1 text-sm text-red-600">{fieldErrors.cholesterol}</p>
+                )}
               </div>
 
               <div>
@@ -163,13 +235,17 @@ export default function PredictionPage() {
                   name="fasting blood sugar"
                   value={formData['fasting blood sugar']}
                   onChange={handleChange}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-black"
+                  className={`mt-1 block w-full rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-black
+                    ${fieldErrors['fasting blood sugar'] ? 'border-red-300' : 'border-gray-300'}`}
                   required
                 >
                   <option value="">Select</option>
                   <option value="1">Greater than 120 mg/dl</option>
                   <option value="0">Less than or equal to 120 mg/dl</option>
                 </select>
+                {fieldErrors['fasting blood sugar'] && (
+                  <p className="mt-1 text-sm text-red-600">{fieldErrors['fasting blood sugar']}</p>
+                )}
               </div>
 
               <div>
@@ -178,7 +254,8 @@ export default function PredictionPage() {
                   name="resting ecg"
                   value={formData['resting ecg']}
                   onChange={handleChange}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-black"
+                  className={`mt-1 block w-full rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-black
+                    ${fieldErrors['resting ecg'] ? 'border-red-300' : 'border-gray-300'}`}
                   required
                 >
                   <option value="">Select</option>
@@ -187,6 +264,9 @@ export default function PredictionPage() {
                   <option value="2">Left Ventricular Hypertrophy</option>
                 </select>
                 <p className="mt-1 text-sm text-gray-500">Results of electrocardiogram while at rest</p>
+                {fieldErrors['resting ecg'] && (
+                  <p className="mt-1 text-sm text-red-600">{fieldErrors['resting ecg']}</p>
+                )}
               </div>
 
               <div>
@@ -196,10 +276,14 @@ export default function PredictionPage() {
                   name="max heart rate"
                   value={formData['max heart rate']}
                   onChange={handleChange}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-black"
+                  className={`mt-1 block w-full rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-black
+                    ${fieldErrors['max heart rate'] ? 'border-red-300' : 'border-gray-300'}`}
                   required
                 />
                 <p className="mt-1 text-sm text-gray-500">Maximum heart rate achieved</p>
+                {fieldErrors['max heart rate'] && (
+                  <p className="mt-1 text-sm text-red-600">{fieldErrors['max heart rate']}</p>
+                )}
               </div>
 
               <div>
@@ -208,13 +292,17 @@ export default function PredictionPage() {
                   name="exercise angina"
                   value={formData['exercise angina']}
                   onChange={handleChange}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-black"
+                  className={`mt-1 block w-full rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-black
+                    ${fieldErrors['exercise angina'] ? 'border-red-300' : 'border-gray-300'}`}
                   required
                 >
                   <option value="">Select</option>
                   <option value="1">Yes</option>
                   <option value="0">No</option>
                 </select>
+                {fieldErrors['exercise angina'] && (
+                  <p className="mt-1 text-sm text-red-600">{fieldErrors['exercise angina']}</p>
+                )}
               </div>
 
               <div>
@@ -225,10 +313,14 @@ export default function PredictionPage() {
                   name="oldpeak"
                   value={formData.oldpeak}
                   onChange={handleChange}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-black"
+                  className={`mt-1 block w-full rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-black
+                    ${fieldErrors.oldpeak ? 'border-red-300' : 'border-gray-300'}`}
                   required
                 />
                 <p className="mt-1 text-sm text-gray-500">ST depression induced by exercise relative to rest</p>
+                {fieldErrors.oldpeak && (
+                  <p className="mt-1 text-sm text-red-600">{fieldErrors.oldpeak}</p>
+                )}
               </div>
 
               <div>
@@ -237,7 +329,8 @@ export default function PredictionPage() {
                   name="ST slope"
                   value={formData['ST slope']}
                   onChange={handleChange}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-black"
+                  className={`mt-1 block w-full rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-black
+                    ${fieldErrors['ST slope'] ? 'border-red-300' : 'border-gray-300'}`}
                   required
                 >
                   <option value="">Select</option>
@@ -246,14 +339,11 @@ export default function PredictionPage() {
                   <option value="3">Downsloping</option>
                 </select>
                 <p className="mt-1 text-sm text-gray-500">Slope of the peak exercise ST segment</p>
+                {fieldErrors['ST slope'] && (
+                  <p className="mt-1 text-sm text-red-600">{fieldErrors['ST slope']}</p>
+                )}
               </div>
             </div>
-
-            {error && (
-              <div className="text-red-600 text-sm mt-2">
-                {error}
-              </div>
-            )}
 
             {prediction && !error && (
               <div className="mt-8 p-6 bg-white rounded-lg shadow-lg">
