@@ -18,7 +18,9 @@ origins = [
     "http://localhost:3000",
     "http://localhost:8000",
     "https://heart-disease-prediction-web.vercel.app",
-    # Add any other origins you need
+    "https://heart-disease-prediction-web-git-main-your-username.vercel.app",
+    "https://heart-disease-prediction-web-your-username.vercel.app",
+    "*"  # This will allow all origins - only use during development
 ]
 
 # Add CORS middleware

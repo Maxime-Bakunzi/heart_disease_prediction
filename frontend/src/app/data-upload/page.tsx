@@ -120,6 +120,17 @@ export default function DataUploadPage() {
           {results && results.names && results.names.length > 0 && (
             <div className="bg-white p-6 rounded-lg shadow">
               <h2 className="text-xl font-semibold text-gray-900 mb-4">Prediction Results</h2>
+              <div className="bg-blue-50 p-4 rounded-md mb-6">
+                <p className="text-sm text-blue-700 mb-2">
+                  <strong>Understanding Your Results:</strong>
+                </p>
+                <ul className="list-disc list-inside text-sm text-blue-600 space-y-1">
+                  <li>Each row shows predictions for one patient from your uploaded data</li>
+                  <li><span className="font-medium">Risk Level:</span> "High Risk" indicates potential heart disease, while "Low Risk" suggests lower probability</li>
+                  <li><span className="font-medium">Probability:</span> Shows the confidence level of the prediction as a percentage</li>
+                  <li>These results should be used as a screening tool and not as a final diagnosis</li>
+                </ul>
+              </div>
               <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
