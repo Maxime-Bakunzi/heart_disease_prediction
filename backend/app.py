@@ -17,6 +17,11 @@ app = FastAPI(title="Heart Disease Prediction API")
 origins = [
     "http://localhost:3000",
     "http://localhost:8000",
+    "https://pulsepoint-amber.vercel.app/",
+    "https://pulsepoint-amber.vercel.app",
+    "https://pulsepoint-amber-git-main-your-username.vercel.app",
+    "https://pulsepoint-amber-your-username.vercel.app",
+    "https://heart-disease-prediction-web.vercel.app/",
     "https://heart-disease-prediction-web.vercel.app",
     "https://heart-disease-prediction-web-git-main-your-username.vercel.app",
     "https://heart-disease-prediction-web-your-username.vercel.app",
